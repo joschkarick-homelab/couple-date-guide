@@ -195,11 +195,11 @@ function PlanDateSheet({ idea, onClose }: { idea: Idea; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-bg/70 p-4 backdrop-blur"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-bg/70 backdrop-blur"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-border bg-surface p-4"
+        className="w-full max-w-md rounded-t-3xl border-t border-x border-border bg-surface p-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 font-semibold">Date planen</h3>

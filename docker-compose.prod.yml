@@ -1,24 +1,81 @@
-# Produktions-Compose: zieht vorgebaute Images aus GHCR.
+# Production Stack: oauth2-proxy + frontend + backend
+# Im Portainer als Stack einfuegen. Die stack.env liefert alle Variablen.
 #
-# Erwartet eine .env-Datei im selben Verzeichnis mit allen Werten aus .env.example.
-# Vor dieser App sollte ein oauth2-proxy oder Authentik-Outpost liegen, der die
-# Auth-Header X-Forwarded-Email / X-Forwarded-Preferred-Username setzt.
-#
-# Reverse-Proxy (Nginx Proxy Manager) → oauth2-proxy → frontend (Port 3000)
+# Verkehrsfluss:
+#   Reverse Proxy (NPMplus / NPM / Caddy, TLS-Termination)
+#     │
+#     ▼
+#   oauth2-proxy:4180  ──── auth via Authentik (OIDC)
+#     │
+#     ▼
+#   frontend:80 (nginx, intern)
+#     │  /api/* proxy_pass
+#     ▼
+#   backend:8000 (FastAPI, intern)
+
 services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    container_name: datemgr-oauth2-proxy
+    restart: unless-stopped
+    command:
+      - --provider=oidc
+      - --oidc-issuer-url=${OIDC_ISSUER_URL}
+      - --client-id=${OIDC_CLIENT_ID}
+      - --client-secret=${OIDC_CLIENT_SECRET}
+      - --cookie-secret=${COOKIE_SECRET}
+      - --cookie-domain=${COOKIE_DOMAIN}
+      - --redirect-url=${OAUTH_REDIRECT_URL}
+      - --whitelist-domain=${COOKIE_DOMAIN}
+      - --email-domain=*
+      - --upstream=http://frontend:80
+      - --http-address=0.0.0.0:4180
+      - --pass-access-token=true
+      - --pass-user-headers=true
+      - --set-xauthrequest=true
+      # Wichtig: Singular --skip-auth-route in neueren oauth2-proxy-Versionen.
+      # Erlaubt den iOS-Kurzbefehl-Endpoint ohne OIDC-Login (er ist via
+      # statischem Bearer-Token im Backend geschuetzt).
+      - --skip-auth-route=^/api/ideas/quick-add$$
+    ports:
+      - "${HOST_PORT:-4180}:4180"
+    depends_on:
+      - frontend
+      - backend
+
   backend:
     image: ghcr.io/joschkarick/date-manager-backend:latest
-    env_file: .env
-    volumes:
-      - ./data:/app/data
+    container_name: datemgr-backend
     restart: unless-stopped
-    expose:
-      - "8000"
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY:-}
+      PERPLEXITY_MODEL: ${PERPLEXITY_MODEL:-sonar-pro}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      UNSPLASH_ACCESS_KEY: ${UNSPLASH_ACCESS_KEY:-}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS}
+      QUICK_ADD_TOKEN: ${QUICK_ADD_TOKEN}
+      AUTH_HEADER_USER: X-Forwarded-Preferred-Username
+      AUTH_HEADER_EMAIL: X-Forwarded-Email
+      AUTH_DEV_MODE: "false"
+      DATABASE_PATH: /app/data/datemgr.db
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+    volumes:
+      - datemgr_data:/app/data
 
   frontend:
     image: ghcr.io/joschkarick/date-manager-frontend:latest
+    container_name: datemgr-frontend
+    restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "3000:80"
-    restart: unless-stopped
+
+volumes:
+  datemgr_data:
