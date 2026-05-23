@@ -47,6 +47,8 @@ services:
     image: ghcr.io/joschkarick/date-manager-backend:latest
     container_name: datemgr-backend
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       AI_PROVIDER: ${AI_PROVIDER}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -76,6 +78,22 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: datemgr-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_POLL_INTERVAL: 300
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_LABEL_ENABLE: "true"
+      REPO_USER: joschkarick
+      REPO_PASS: ${GHCR_TOKEN}
+    command: --label-enable
 
 volumes:
   datemgr_data:
