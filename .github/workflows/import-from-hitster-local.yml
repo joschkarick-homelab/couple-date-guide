@@ -24,9 +24,18 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clone source repo
+        env:
+          SOURCE_TOKEN: ${{ secrets.SOURCE_REPO_TOKEN }}
         run: |
+          if [ -z "$SOURCE_TOKEN" ]; then
+            echo "::error::Secret SOURCE_REPO_TOKEN is not set."
+            echo "Create a fine-grained PAT with read access to joschkarick/hitster-local"
+            echo "and add it as a repo secret named SOURCE_REPO_TOKEN."
+            exit 1
+          fi
           git clone --branch "${{ inputs.source_branch }}" \
-            https://github.com/joschkarick/hitster-local.git /tmp/source
+            "https://x-access-token:${SOURCE_TOKEN}@github.com/joschkarick/hitster-local.git" \
+            /tmp/source
 
       - name: Move date-manager/ contents into target root
         run: |
