@@ -21,7 +21,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # PAT must have Contents:Write AND Workflows:Write on this repo,
+          # because the default GITHUB_TOKEN cannot create/update workflow files.
+          token: ${{ secrets.SOURCE_REPO_TOKEN }}
 
       - name: Clone source repo
         env:
