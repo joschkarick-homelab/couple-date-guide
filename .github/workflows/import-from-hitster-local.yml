@@ -1,0 +1,52 @@
+name: Import from hitster-local
+
+# Einmaliger Import des date-manager/-Unterordners aus dem hitster-local-Repo.
+# Manuell starten via Tab "Actions" → "Import from hitster-local" → "Run workflow".
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: "Branch in joschkarick/hitster-local mit dem date-manager/"
+        required: true
+        default: "claude/date-manager-app-EDHfv"
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout this (target) repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone source repo
+        run: |
+          git clone --branch "${{ inputs.source_branch }}" \
+            https://github.com/joschkarick/hitster-local.git /tmp/source
+
+      - name: Move date-manager/ contents into target root
+        run: |
+          set -e
+          # Wipe everything except .git and the import workflow itself
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name '.git' \
+            ! -name '.github' \
+            -exec rm -rf {} +
+          # Copy date-manager/* into the target root (incl. hidden files)
+          cp -a /tmp/source/date-manager/. ./
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "Import date-manager from joschkarick/hitster-local@${{ inputs.source_branch }}"
+          git push
