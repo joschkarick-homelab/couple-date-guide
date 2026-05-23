@@ -1,0 +1,24 @@
+# Produktions-Compose: zieht vorgebaute Images aus GHCR.
+#
+# Erwartet eine .env-Datei im selben Verzeichnis mit allen Werten aus .env.example.
+# Vor dieser App sollte ein oauth2-proxy oder Authentik-Outpost liegen, der die
+# Auth-Header X-Forwarded-Email / X-Forwarded-Preferred-Username setzt.
+#
+# Reverse-Proxy (Nginx Proxy Manager) → oauth2-proxy → frontend (Port 3000)
+services:
+  backend:
+    image: ghcr.io/joschkarick/date-manager-backend:latest
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  frontend:
+    image: ghcr.io/joschkarick/date-manager-frontend:latest
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    restart: unless-stopped

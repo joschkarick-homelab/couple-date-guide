@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans antialiased;
+    background-image: radial-gradient(
+      circle at top right,
+      rgba(183, 148, 212, 0.08),
+      transparent 50%
+    );
+    background-attachment: fixed;
+  }
+
+  /* iOS safe-area */
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition;
+  }
+  .btn-primary {
+    @apply bg-primary text-bg hover:bg-primary-hover;
+  }
+  .btn-ghost {
+    @apply border border-border bg-transparent text-text hover:bg-surface;
+  }
+  .btn-danger {
+    @apply border border-red-500/40 bg-transparent text-red-300 hover:bg-red-500/10;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm
+           text-text placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30;
+  }
+  .textarea {
+    @apply input min-h-[80px] resize-y;
+  }
+
+  .card {
+    @apply rounded-2xl border border-border bg-surface p-4;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+  .chip-muted {
+    @apply chip bg-primary/15 text-primary;
+  }
+  .chip-secondary {
+    @apply chip bg-secondary text-bg;
+  }
+
+  .section-title {
+    @apply mb-2 text-xs font-semibold uppercase tracking-wider text-secondary;
+  }
+}
+
+/* Hide scrollbars on filter chips row */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
