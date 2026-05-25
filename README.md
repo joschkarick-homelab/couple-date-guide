@@ -45,8 +45,9 @@ Der Deploy ist vollständig automatisiert:
      `ghcr.io/joschkarick-homelab/date-manager-{backend,frontend}:latest`.
 2. Bei erfolgreichem Build (oder bei Änderungen an `docker-compose.prod.yml`)
    läuft `.github/workflows/deploy.yml`:
+   - joined den Runner ephemer ins Tailscale-Netz (kein Port-Forward nötig)
    - rendert aus den GitHub-Secrets eine `stack.env`
-   - kopiert sie zusammen mit `docker-compose.prod.yml` per SSH auf den LXC
+   - kopiert sie zusammen mit `docker-compose.prod.yml` per SSH (über Tailscale) auf den LXC
    - macht `docker compose pull && up -d --remove-orphans`
 
 ### 1. LXC einmalig vorbereiten
@@ -67,20 +68,43 @@ chown -R deploy:deploy /home/deploy/.ssh && chmod 700 /home/deploy/.ssh
 # Ziel-Verzeichnis fuer den Stack
 mkdir -p /opt/apps/couple-date-guide
 chown deploy:deploy /opt/apps/couple-date-guide
+
+# Tailscale installieren und joinen
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscale up   # einmal interaktiv den Auth-Link bestätigen
+tailscale ip -4   # 100.x.y.z notieren — wird DEPLOY_HOST
 ```
 
 > Die Images liegen public in GHCR — auf dem LXC ist *kein* `docker login`
 > nötig.
 
-### 2. GitHub Secrets pflegen
+### 2. Tailscale-Tag + OAuth-Client anlegen
+
+In der Tailscale-Admin-Konsole:
+
+1. **ACL** (`https://login.tailscale.com/admin/acls`) — `tag:ci` definieren
+   und SSH-Zugriff auf den LXC erlauben, z.B.:
+   ```hujson
+   "tagOwners": { "tag:ci": ["autogroup:admin"] },
+   "acls": [
+     { "action": "accept", "src": ["tag:ci"], "dst": ["<lxc-tailscale-ip>:22"] }
+   ]
+   ```
+2. **OAuth-Client** (`https://login.tailscale.com/admin/settings/oauth`):
+   "Generate OAuth client" mit Scope `auth_keys` (write) und Tag `tag:ci`.
+   Client-ID + Secret notieren — werden GitHub-Secrets.
+
+### 3. GitHub Secrets pflegen
 
 In `Settings → Secrets and variables → Actions → Repository secrets`:
 
-**SSH-Deploy-Targets:**
+**Tailscale + SSH-Deploy-Targets:**
 
 | Secret | Beispielwert |
 |---|---|
-| `DEPLOY_HOST` | `lxc.deine-domain.de` oder IP |
+| `TS_OAUTH_CLIENT_ID` | aus Tailscale-OAuth-Client |
+| `TS_OAUTH_SECRET` | aus Tailscale-OAuth-Client (`tskey-client-...`) |
+| `DEPLOY_HOST` | Tailscale-IP (`100.x.y.z`) oder MagicDNS-Name |
 | `DEPLOY_USER` | `deploy` |
 | `DEPLOY_SSH_KEY` | Private SSH-Key (PEM) |
 | `DEPLOY_PORT` | `22` (optional) |
@@ -95,13 +119,13 @@ optional: `PERPLEXITY_API_KEY`/`_MODEL`, `GEMINI_API_KEY`/`_MODEL`,
 `OPENAI_API_KEY`/`_MODEL`, `UNSPLASH_ACCESS_KEY`,
 `VAPID_PUBLIC_KEY`/`_PRIVATE_KEY`/`_SUBJECT`.
 
-### 3. Ersten Deploy auslösen
+### 4. Ersten Deploy auslösen
 
 ```
 GitHub → Actions → "Deploy to Homelab" → Run workflow → main
 ```
 
-### 4. NPMplus-Proxy für die Domain einrichten
+### 5. NPMplus-Proxy für die Domain einrichten
 
 Ein einfacher Forward zum LXC:`HOST_PORT` (z.B. `4180`) genügt — die OIDC-Auth
 übernimmt der oauth2-proxy im Stack, *nicht* NPMplus.
