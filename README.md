@@ -38,66 +38,89 @@ und du brauchst kein oauth2-proxy davor.
 
 ## Production Deployment
 
-### 1. Repo-Setup auf GitHub
+Der Deploy ist vollständig automatisiert:
 
-GitHub Actions in `.github/workflows/build.yml` baut bei Push auf `main`
-zwei Images und pusht sie nach `ghcr.io/<owner>/date-manager-{backend,frontend}`.
+1. Push auf `main` (mit Änderungen in `backend/` oder `frontend/`)
+   → `.github/workflows/build.yml` baut beide Images nach
+     `ghcr.io/joschkarick-homelab/date-manager-{backend,frontend}:latest`.
+2. Bei erfolgreichem Build (oder bei Änderungen an `docker-compose.prod.yml`)
+   läuft `.github/workflows/deploy.yml`:
+   - rendert aus den GitHub-Secrets eine `stack.env`
+   - kopiert sie zusammen mit `docker-compose.prod.yml` per SSH auf den LXC
+   - macht `docker compose pull && up -d --remove-orphans`
 
-Stelle sicher, dass dein Repo das Token für `packages: write` hat (standardmäßig
-über `GITHUB_TOKEN`).
-
-### 2. Auf dem Server
+### 1. LXC einmalig vorbereiten
 
 ```bash
-# Verzeichnis anlegen
-mkdir -p /opt/datemgr && cd /opt/datemgr
+# Docker + Compose v2 installieren (Debian/Ubuntu)
+apt-get update && apt-get install -y docker.io docker-compose-plugin
 
-# docker-compose.prod.yml + .env auf den Server kopieren
-scp docker-compose.prod.yml .env user@server:/opt/datemgr/
+# Deploy-User mit Docker-Rechten
+adduser --disabled-password deploy
+usermod -aG docker deploy
 
-# Stack starten
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+# SSH-Key fuer GitHub Actions hinterlegen
+mkdir -p /home/deploy/.ssh
+echo "<dein pub key>" >> /home/deploy/.ssh/authorized_keys
+chown -R deploy:deploy /home/deploy/.ssh && chmod 700 /home/deploy/.ssh
+
+# Ziel-Verzeichnis fuer den Stack
+mkdir -p /opt/apps/couple-date-guide
+chown deploy:deploy /opt/apps/couple-date-guide
 ```
 
-### 3. Reverse Proxy + Authentik
+> Die Images liegen public in GHCR — auf dem LXC ist *kein* `docker login`
+> nötig.
 
-Vor die App gehört ein oauth2-proxy (oder Authentik-Outpost), der die Auth
-abnimmt und die User-Info als Header weitergibt:
+### 2. GitHub Secrets pflegen
+
+In `Settings → Secrets and variables → Actions → Repository secrets`:
+
+**SSH-Deploy-Targets:**
+
+| Secret | Beispielwert |
+|---|---|
+| `DEPLOY_HOST` | `lxc.deine-domain.de` oder IP |
+| `DEPLOY_USER` | `deploy` |
+| `DEPLOY_SSH_KEY` | Private SSH-Key (PEM) |
+| `DEPLOY_PORT` | `22` (optional) |
+| `DEPLOY_PATH` | `/opt/apps/couple-date-guide` |
+
+**App-Konfiguration** (siehe `stack.env.example` für die Liste der Schlüssel):
+`COOKIE_DOMAIN`, `OAUTH_REDIRECT_URL`, `HOST_PORT`,
+`OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `COOKIE_SECRET`,
+`ALLOWED_EMAILS`, `QUICK_ADD_TOKEN`,
+`AI_PROVIDER`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`,
+optional: `PERPLEXITY_API_KEY`/`_MODEL`, `GEMINI_API_KEY`/`_MODEL`,
+`OPENAI_API_KEY`/`_MODEL`, `UNSPLASH_ACCESS_KEY`,
+`VAPID_PUBLIC_KEY`/`_PRIVATE_KEY`/`_SUBJECT`.
+
+### 3. Ersten Deploy auslösen
 
 ```
-Nginx Proxy Manager (TLS)
+GitHub → Actions → "Deploy to Homelab" → Run workflow → main
+```
+
+### 4. NPMplus-Proxy für die Domain einrichten
+
+Ein einfacher Forward zum LXC:`HOST_PORT` (z.B. `4180`) genügt — die OIDC-Auth
+übernimmt der oauth2-proxy im Stack, *nicht* NPMplus.
+
+### Architektur dahinter
+
+```
+NPMplus (TLS-Termination)
       ↓
-oauth2-proxy (OIDC gegen Authentik)
+oauth2-proxy (OIDC gegen Authentik)   ← im docker-compose.prod.yml enthalten
       ↓
-frontend (Port 3000)
+frontend (nginx, intern)
       ↓
-backend (Port 8000)
+backend (FastAPI, intern)
 ```
 
-Minimaler oauth2-proxy-Block (in dein Stack hinzu):
-
-```yaml
-oauth2-proxy:
-  image: quay.io/oauth2-proxy/oauth2-proxy:latest
-  command:
-    - --provider=oidc
-    - --oidc-issuer-url=https://authentik.example.com/application/o/datemgr/
-    - --client-id=<authentik-client-id>
-    - --client-secret=<authentik-client-secret>
-    - --cookie-secret=<32-byte-random>
-    - --redirect-url=https://date.example.com/oauth2/callback
-    - --email-domain=*
-    - --pass-access-token=true
-    - --set-xauthrequest=true
-    - --upstream=http://frontend:80
-    - --http-address=0.0.0.0:4180
-  ports:
-    - "4180:4180"
-```
-
-Stelle in Authentik einen OAuth2/OIDC-Provider + Application "datemgr"
-ein, und whiteliste dein Konto + das deiner Frau via `ALLOWED_EMAILS`.
+In Authentik einmalig einen OAuth2/OIDC-Provider + Application
+"couple-date-guide" anlegen und die Whitelist via `ALLOWED_EMAILS`
+pflegen.
 
 ## Konfiguration (Auszug)
 
