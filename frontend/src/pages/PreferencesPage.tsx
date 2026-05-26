@@ -123,8 +123,8 @@ export function PreferencesPage() {
             Wird vorausgewählt, wenn ihr ein Date plant — und für getimete
             Outlook-Kalendereinträge genutzt. Leer lassen = ganztägig.
           </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="block">
+          <div className="flex items-end gap-3">
+            <label className="block w-36">
               <span className="mb-1 block text-xs text-text-muted">Uhrzeit</span>
               <input
                 type="time"
@@ -133,7 +133,7 @@ export function PreferencesPage() {
                 onChange={(e) => setDefaultTime(e.target.value)}
               />
             </label>
-            <label className="block">
+            <label className="block w-32">
               <span className="mb-1 block text-xs text-text-muted">Dauer (Min.)</span>
               <input
                 type="number"
@@ -141,7 +141,7 @@ export function PreferencesPage() {
                 min={15}
                 max={1440}
                 step={15}
-                className="input w-28"
+                className="input"
                 placeholder="120"
                 value={defaultDuration}
                 onChange={(e) => setDefaultDuration(e.target.value)}
