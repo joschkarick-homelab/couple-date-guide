@@ -65,7 +65,9 @@ jobs:
           )
           : > stack.env
           for key in "${keys[@]}"; do
-            printf '%s=%s\n' "$key" "${!key}" >> stack.env
+            value="${!key}"
+            [ -z "$value" ] && continue
+            printf '%s=%s\n' "$key" "$value" >> stack.env
           done
           echo "Rendered $(wc -l < stack.env) lines into stack.env"
 
