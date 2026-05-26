@@ -67,30 +67,30 @@ jobs:
           for key in "${keys[@]}"; do
             printf '%s=%s\n' "$key" "${!key}" >> stack.env
           done
-          # Sanity-Check ohne Secret-Werte zu leaken
           echo "Rendered $(wc -l < stack.env) lines into stack.env"
 
-      - name: Copy compose + env to LXC
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          source: "docker-compose.prod.yml,stack.env"
-          target: ${{ secrets.DEPLOY_PATH }}
+      - name: Copy compose + env to LXC (via Tailscale SSH)
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          scp -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=/dev/null \
+              docker-compose.prod.yml stack.env \
+              "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
-      - name: Pull images & restart stack
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          script: |
-            set -euo pipefail
-            cd ${{ secrets.DEPLOY_PATH }}
-            chmod 600 stack.env
-            docker compose -f docker-compose.prod.yml --env-file stack.env pull
-            docker compose -f docker-compose.prod.yml --env-file stack.env up -d --remove-orphans
-            docker image prune -f
+      - name: Pull images & restart stack (via Tailscale SSH)
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=/dev/null \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "cd ${DEPLOY_PATH} \
+               && chmod 600 stack.env \
+               && docker compose -f docker-compose.prod.yml --env-file stack.env pull \
+               && docker compose -f docker-compose.prod.yml --env-file stack.env up -d --remove-orphans \
+               && docker image prune -f"

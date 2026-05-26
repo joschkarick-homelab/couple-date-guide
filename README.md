@@ -47,7 +47,8 @@ Der Deploy ist vollständig automatisiert:
    läuft `.github/workflows/deploy.yml`:
    - joined den Runner ephemer ins Tailscale-Netz (kein Port-Forward nötig)
    - rendert aus den GitHub-Secrets eine `stack.env`
-   - kopiert sie zusammen mit `docker-compose.prod.yml` per SSH (über Tailscale) auf den LXC
+   - kopiert sie zusammen mit `docker-compose.prod.yml` per **Tailscale SSH**
+     auf den LXC (kein SSH-Key — Auth via Tailscale-Tag-ACL)
    - macht `docker compose pull && up -d --remove-orphans`
 
 ### 1. LXC einmalig vorbereiten
@@ -56,38 +57,41 @@ Der Deploy ist vollständig automatisiert:
 # Docker + Compose v2 installieren (Debian/Ubuntu)
 apt-get update && apt-get install -y docker.io docker-compose-plugin
 
-# Deploy-User mit Docker-Rechten
+# Deploy-User mit Docker-Rechten (ohne SSH-Key — Tailscale macht die Auth)
 adduser --disabled-password deploy
 usermod -aG docker deploy
-
-# SSH-Key fuer GitHub Actions hinterlegen
-mkdir -p /home/deploy/.ssh
-echo "<dein pub key>" >> /home/deploy/.ssh/authorized_keys
-chown -R deploy:deploy /home/deploy/.ssh && chmod 700 /home/deploy/.ssh
 
 # Ziel-Verzeichnis fuer den Stack
 mkdir -p /opt/apps/couple-date-guide
 chown deploy:deploy /opt/apps/couple-date-guide
 
-# Tailscale installieren und joinen
+# Tailscale installieren, mit SSH und Tag joinen
 curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up   # einmal interaktiv den Auth-Link bestätigen
+tailscale up --ssh --advertise-tags=tag:homelab
 tailscale ip -4   # 100.x.y.z notieren — wird DEPLOY_HOST
 ```
 
 > Die Images liegen public in GHCR — auf dem LXC ist *kein* `docker login`
 > nötig.
 
-### 2. Tailscale-Tag + OAuth-Client anlegen
+### 2. Tailscale-ACL + OAuth-Client anlegen
 
 In der Tailscale-Admin-Konsole:
 
-1. **ACL** (`https://login.tailscale.com/admin/acls`) — `tag:ci` definieren
-   und SSH-Zugriff auf den LXC erlauben, z.B.:
+1. **ACL** (`https://login.tailscale.com/admin/acls`) — Tags definieren
+   und Tailscale-SSH-Zugriff für `tag:ci` als User `deploy` erlauben:
    ```hujson
-   "tagOwners": { "tag:ci": ["autogroup:admin"] },
-   "acls": [
-     { "action": "accept", "src": ["tag:ci"], "dst": ["<lxc-tailscale-ip>:22"] }
+   "tagOwners": {
+     "tag:ci":      ["autogroup:admin"],
+     "tag:homelab": ["autogroup:admin"]
+   },
+   "ssh": [
+     {
+       "action": "accept",
+       "src":    ["tag:ci"],
+       "dst":    ["tag:homelab"],
+       "users":  ["deploy"]
+     }
    ]
    ```
 2. **OAuth-Client** (`https://login.tailscale.com/admin/settings/oauth`):
@@ -98,7 +102,7 @@ In der Tailscale-Admin-Konsole:
 
 In `Settings → Secrets and variables → Actions → Repository secrets`:
 
-**Tailscale + SSH-Deploy-Targets:**
+**Tailscale + Deploy-Targets:**
 
 | Secret | Beispielwert |
 |---|---|
@@ -106,8 +110,6 @@ In `Settings → Secrets and variables → Actions → Repository secrets`:
 | `TS_OAUTH_SECRET` | aus Tailscale-OAuth-Client (`tskey-client-...`) |
 | `DEPLOY_HOST` | Tailscale-IP (`100.x.y.z`) oder MagicDNS-Name |
 | `DEPLOY_USER` | `deploy` |
-| `DEPLOY_SSH_KEY` | Private SSH-Key (PEM) |
-| `DEPLOY_PORT` | `22` (optional) |
 | `DEPLOY_PATH` | `/opt/apps/couple-date-guide` |
 
 **App-Konfiguration** (siehe `stack.env.example` für die Liste der Schlüssel):
