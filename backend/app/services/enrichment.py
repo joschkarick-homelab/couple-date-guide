@@ -41,8 +41,10 @@ async def enrich_idea_async(idea_id: int) -> None:
                 db.commit()
         return
 
-    # Image search is best-effort; missing key just skips.
-    image_query = " ".join(filter(None, [result.activity, result.location, result.food]))
+    # Image search is best-effort; missing key just skips. The model returns a
+    # short English `image_query` tuned for stock-photo search; fall back to the
+    # title only (which is also short) if it's missing.
+    image_query = (result.image_query or result.title or "").strip()
     image_url = await search_stock_image(image_query) if image_query else None
 
     with SessionLocal() as db:

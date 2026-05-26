@@ -14,6 +14,7 @@ class Enrichment:
     music_playlist: Optional[str] = None
     activity: Optional[str] = None
     location: Optional[str] = None
+    image_query: Optional[str] = None
     tags: list[str] = field(default_factory=list)
 
 
@@ -35,6 +36,9 @@ Reichere sie zu einem schönen Date-Konzept an und gib ein JSON-Objekt mit diese
 - music_playlist (string): Vorschlag für Musik / Deezer- oder Spotify-Playlist-Stil
 - activity (string): die konkrete Aktivität in einem Satz
 - location (string): wo das stattfindet (Zuhause / Restaurant / draußen / spezifisch)
+- image_query (string): 2-4 englische, generische Stichwörter für eine Unsplash-Stock-Foto-Suche.
+  Beschreibe die Stimmung/Szene visuell, KEINE Eigennamen oder Markennamen.
+  Beispiele: "cozy couch gaming evening", "romantic candlelight dinner", "autumn forest walk", "homemade pizza kitchen"
 - tags (array of strings): erfüllte Bedürfnisse, z.B. ["Romantik", "Spiel & Spaß", "Genuss", "Abenteuer", "Entspannung", "Kultur", "Nerd", "Zuhause"]
 
 Antworte ausschließlich mit JSON, ohne Erklärung, ohne Markdown-Fences."""

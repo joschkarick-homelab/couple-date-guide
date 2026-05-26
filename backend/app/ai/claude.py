@@ -68,6 +68,7 @@ class ClaudeProvider(AIProvider):
             music_playlist=data.get("music_playlist"),
             activity=data.get("activity"),
             location=data.get("location"),
+            image_query=data.get("image_query"),
             tags=[str(t) for t in (data.get("tags") or [])],
         )
 
