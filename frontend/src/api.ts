@@ -80,4 +80,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(sub),
     }),
+
+  getCalendarSubscription: () =>
+    http<{ token: string; ics_path: string } | null>("/calendar/me"),
+  createCalendarSubscription: () =>
+    http<{ token: string; ics_path: string }>("/calendar", { method: "POST" }),
+  revokeCalendarSubscription: () =>
+    http<void>("/calendar", { method: "DELETE" }),
 };

@@ -16,6 +16,9 @@ export function PreferencesPage() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [pushOn, setPushOn] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
+  const [calPath, setCalPath] = useState<string | null>(null);
+  const [calBusy, setCalBusy] = useState(false);
+  const [calCopied, setCalCopied] = useState(false);
 
   useEffect(() => {
     api
@@ -29,6 +32,8 @@ export function PreferencesPage() {
     const supported = "serviceWorker" in navigator && "PushManager" in window;
     setPushSupported(supported);
     if (supported) isPushSubscribed().then(setPushOn);
+
+    api.getCalendarSubscription().then((sub) => setCalPath(sub?.ics_path ?? null));
   }, []);
 
   async function save() {
@@ -49,6 +54,38 @@ export function PreferencesPage() {
       const ok = await subscribeToPush();
       setPushOn(ok);
     }
+  }
+
+  const calHttps = calPath ? `${window.location.origin}${calPath}` : null;
+  const calWebcal = calHttps ? calHttps.replace(/^https?:/, "webcal:") : null;
+
+  async function enableCalendar() {
+    setCalBusy(true);
+    try {
+      const sub = await api.createCalendarSubscription();
+      setCalPath(sub.ics_path);
+      setCalCopied(false);
+    } finally {
+      setCalBusy(false);
+    }
+  }
+
+  async function disableCalendar() {
+    if (!confirm("Outlook-Abo deaktivieren? Die bisherige URL wird ungültig.")) return;
+    setCalBusy(true);
+    try {
+      await api.revokeCalendarSubscription();
+      setCalPath(null);
+    } finally {
+      setCalBusy(false);
+    }
+  }
+
+  async function copyCalUrl() {
+    if (!calHttps) return;
+    await navigator.clipboard.writeText(calHttps);
+    setCalCopied(true);
+    setTimeout(() => setCalCopied(false), 2000);
   }
 
   if (loading) return <div className="text-center text-text-muted">Lade…</div>;
@@ -98,6 +135,61 @@ export function PreferencesPage() {
           >
             {pushOn ? "🔕 Deaktivieren" : "🔔 Aktivieren"}
           </button>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">Kalender abonnieren</h2>
+        <p className="mb-3 text-xs text-text-muted">
+          Read-only iCal-Feed eurer geplanten Dates für Outlook, Apple Kalender, etc.
+          Die Datenhoheit bleibt hier — Änderungen im Date-Manager erscheinen
+          automatisch im Outlook (Polling alle paar Stunden).
+        </p>
+        {!calPath ? (
+          <button
+            className="btn btn-primary disabled:opacity-50"
+            disabled={calBusy}
+            onClick={enableCalendar}
+          >
+            {calBusy ? "Erzeuge…" : "📅 Outlook-Abo aktivieren"}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="text-xs text-text-muted">
+              Diese URL in Outlook unter „Kalender hinzufügen → Aus dem Internet" einfügen:
+            </div>
+            <code className="rounded bg-bg-soft p-2 text-[10px] break-all">
+              {calHttps}
+            </code>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn btn-primary text-sm" onClick={copyCalUrl}>
+                {calCopied ? "✓ kopiert" : "📋 URL kopieren"}
+              </button>
+              {calWebcal && (
+                <a className="btn btn-ghost text-sm" href={calWebcal}>
+                  In Kalender öffnen
+                </a>
+              )}
+              <button
+                className="btn btn-ghost text-sm disabled:opacity-50"
+                disabled={calBusy}
+                onClick={enableCalendar}
+              >
+                🔄 Neu generieren
+              </button>
+              <button
+                className="btn btn-ghost text-sm disabled:opacity-50"
+                disabled={calBusy}
+                onClick={disableCalendar}
+              >
+                Deaktivieren
+              </button>
+            </div>
+            <p className="text-[11px] text-text-muted">
+              ⚠️ Diese URL ist eure Geheim-Zugang. Wer sie kennt, sieht eure Date-Titel
+              und Notizen — also nicht öffentlich teilen.
+            </p>
+          </div>
         )}
       </div>
 
