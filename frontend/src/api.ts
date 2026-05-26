@@ -54,6 +54,8 @@ export const api = {
   createDate: (data: {
     title: string;
     scheduled_for: string;
+    start_time?: string | null;
+    duration_minutes?: number | null;
     notes?: string | null;
     idea_id?: number | null;
   }) => http<DatePlan>("/dates", { method: "POST", body: JSON.stringify(data) }),
@@ -62,10 +64,14 @@ export const api = {
   deleteDate: (id: number) => http<void>(`/dates/${id}`, { method: "DELETE" }),
 
   getPreferences: () => http<Preferences>("/preferences"),
-  updatePreferences: (context: string) =>
+  updatePreferences: (data: {
+    context: string;
+    default_start_time?: string | null;
+    default_duration_minutes?: number | null;
+  }) =>
     http<Preferences>("/preferences", {
       method: "PUT",
-      body: JSON.stringify({ context }),
+      body: JSON.stringify(data),
     }),
 
   chat: (message: string, session_id?: string) =>

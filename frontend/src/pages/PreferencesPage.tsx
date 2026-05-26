@@ -11,6 +11,8 @@ const PLACEHOLDER = `Beispiel:
 
 export function PreferencesPage() {
   const [text, setText] = useState("");
+  const [defaultTime, setDefaultTime] = useState(""); // "HH:MM"
+  const [defaultDuration, setDefaultDuration] = useState<string>(""); // minutes as string for input
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -25,6 +27,10 @@ export function PreferencesPage() {
       .getPreferences()
       .then((p) => {
         setText(p.context);
+        setDefaultTime(p.default_start_time ? p.default_start_time.slice(0, 5) : "");
+        setDefaultDuration(
+          p.default_duration_minutes != null ? String(p.default_duration_minutes) : "",
+        );
         setSavedAt(p.updated_at);
       })
       .finally(() => setLoading(false));
@@ -39,7 +45,13 @@ export function PreferencesPage() {
   async function save() {
     setSaving(true);
     try {
-      const p = await api.updatePreferences(text);
+      const durationNum = defaultDuration.trim() ? Number(defaultDuration) : null;
+      const p = await api.updatePreferences({
+        context: text,
+        default_start_time: defaultTime.trim() || null,
+        default_duration_minutes:
+          durationNum != null && !Number.isNaN(durationNum) ? durationNum : null,
+      });
       setSavedAt(p.updated_at);
     } finally {
       setSaving(false);
@@ -104,6 +116,40 @@ export function PreferencesPage() {
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
+
+        <div className="mt-4 border-t border-border pt-4">
+          <div className="section-title">Standardzeit für Dates</div>
+          <p className="mb-2 text-xs text-text-muted">
+            Wird vorausgewählt, wenn ihr ein Date plant — und für getimete
+            Outlook-Kalendereinträge genutzt. Leer lassen = ganztägig.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs text-text-muted">Uhrzeit</span>
+              <input
+                type="time"
+                className="input"
+                value={defaultTime}
+                onChange={(e) => setDefaultTime(e.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-text-muted">Dauer (Min.)</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={15}
+                max={1440}
+                step={15}
+                className="input w-28"
+                placeholder="120"
+                value={defaultDuration}
+                onChange={(e) => setDefaultDuration(e.target.value)}
+              />
+            </label>
+          </div>
+        </div>
+
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs text-text-muted">
             {savedAt ? `Gespeichert: ${new Date(savedAt).toLocaleString("de-DE")}` : ""}

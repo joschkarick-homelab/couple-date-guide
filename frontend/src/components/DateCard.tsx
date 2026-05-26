@@ -53,6 +53,9 @@ export function DateCard({
       <div className="text-lg font-bold leading-tight">{date.title}</div>
       <div className="mt-1 text-sm text-text-muted">
         📅 {weekday}, {dateLabel}
+        {date.start_time && (
+          <span className="ml-1">· ⏱ {date.start_time.slice(0, 5)}</span>
+        )}
       </div>
       {date.idea?.music_playlist && (
         <div className="mt-1 text-xs text-text-muted">🎵 {date.idea.music_playlist}</div>

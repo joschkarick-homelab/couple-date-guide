@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Optional
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, Text, Time, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -25,6 +25,8 @@ class Preferences(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
     context: Mapped[str] = mapped_column(Text, default="")
+    default_start_time: Mapped[Optional[time]] = mapped_column(Time)
+    default_duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
@@ -69,6 +71,8 @@ class DatePlan(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
     scheduled_for: Mapped[date] = mapped_column(Date, index=True)
+    start_time: Mapped[Optional[time]] = mapped_column(Time)
+    duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
     # planned | done | cancelled
