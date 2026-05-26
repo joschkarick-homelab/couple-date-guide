@@ -13,7 +13,7 @@ from .ai import get_provider
 from .auth import CurrentUser
 from .config import Settings, get_settings
 from .db import init_db
-from .routers import date_finder, dates, ideas, notifications, preferences
+from .routers import calendar, date_finder, dates, ideas, notifications, preferences
 from .schemas import HealthOut, MeOut
 from .services.notifications import notify_dates_today
 
@@ -74,3 +74,4 @@ app.include_router(dates.router)
 app.include_router(preferences.router)
 app.include_router(date_finder.router)
 app.include_router(notifications.router)
+app.include_router(calendar.router)

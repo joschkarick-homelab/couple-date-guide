@@ -105,3 +105,14 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(16))  # user | assistant
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class CalendarToken(Base):
+    """Per-user unguessable token to subscribe to dates via iCal feed."""
+
+    __tablename__ = "calendar_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

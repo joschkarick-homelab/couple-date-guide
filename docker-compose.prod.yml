@@ -37,6 +37,9 @@ services:
       # Erlaubt den iOS-Kurzbefehl-Endpoint ohne OIDC-Login (er ist via
       # statischem Bearer-Token im Backend geschuetzt).
       - --skip-auth-route=^/api/ideas/quick-add$$
+      # ICS-Feed fuer Outlook / Apple Calendar: per-User-Token in der URL
+      # ist das Secret. Outlook kann keine OIDC-Header schicken.
+      - --skip-auth-route=^/api/calendar/[^/]+\.ics$$
     ports:
       - "${HOST_PORT:-4180}:4180"
     depends_on:

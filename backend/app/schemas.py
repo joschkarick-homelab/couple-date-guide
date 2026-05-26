@@ -115,3 +115,8 @@ class HealthOut(BaseModel):
 class MeOut(BaseModel):
     email: str
     name: Optional[str] = None
+
+
+class CalendarSubscriptionOut(BaseModel):
+    token: str
+    ics_path: str  # "/api/calendar/<token>.ics" — frontend prefixes its origin
