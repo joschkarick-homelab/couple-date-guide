@@ -362,16 +362,31 @@ function EditField({
 function PlanDateSheet({ idea, onClose }: { idea: Idea; onClose: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
+  const [startTime, setStartTime] = useState<string>(""); // "HH:MM"
+  const [duration, setDuration] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const nav = useNavigate();
 
+  useEffect(() => {
+    // Prefill from preferences so the couple's usual "after the kids sleep"
+    // time appears automatically.
+    api.getPreferences().then((p) => {
+      if (p.default_start_time) setStartTime(p.default_start_time.slice(0, 5));
+      if (p.default_duration_minutes != null) setDuration(String(p.default_duration_minutes));
+    });
+  }, []);
+
   async function submit() {
     setBusy(true);
     try {
+      const durationNum = duration.trim() ? Number(duration) : null;
       await api.createDate({
         title: idea.title || idea.raw_input.slice(0, 60),
         scheduled_for: date,
+        start_time: startTime.trim() || null,
+        duration_minutes:
+          durationNum != null && !Number.isNaN(durationNum) ? durationNum : null,
         notes: notes.trim() || null,
         idea_id: idea.id,
       });
@@ -401,6 +416,33 @@ function PlanDateSheet({ idea, onClose }: { idea: Idea; onClose: () => void }) {
             onChange={(e) => setDate(e.target.value)}
           />
         </label>
+        <div className="mb-3 flex gap-3">
+          <label className="block flex-1">
+            <span className="mb-1 block text-xs text-text-muted">
+              Uhrzeit (leer = ganztägig)
+            </span>
+            <input
+              type="time"
+              className="input"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
+          </label>
+          <label className="block w-32">
+            <span className="mb-1 block text-xs text-text-muted">Dauer (Min.)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={15}
+              max={1440}
+              step={15}
+              className="input"
+              placeholder="120"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
+          </label>
+        </div>
         <label className="mb-3 block">
           <span className="mb-1 block text-xs text-text-muted">Notizen (optional)</span>
           <textarea

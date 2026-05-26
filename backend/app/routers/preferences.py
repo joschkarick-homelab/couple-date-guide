@@ -39,6 +39,8 @@ def update_preferences(
 ) -> Preferences:
     prefs = _get_or_create(db)
     prefs.context = payload.context
+    prefs.default_start_time = payload.default_start_time
+    prefs.default_duration_minutes = payload.default_duration_minutes
     db.commit()
     db.refresh(prefs)
     return prefs

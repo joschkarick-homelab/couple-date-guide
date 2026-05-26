@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -11,6 +11,30 @@ from ..auth import CurrentUser
 from ..db import get_db
 from ..models import CalendarToken, DatePlan
 from ..schemas import CalendarSubscriptionOut
+
+TZID = "Europe/Berlin"
+
+# Minimal VTIMEZONE block for Europe/Berlin. Outlook honours this so the wall
+# clock time stays correct across DST switches regardless of the viewer's TZ.
+VTIMEZONE_BLOCK = [
+    "BEGIN:VTIMEZONE",
+    f"TZID:{TZID}",
+    "BEGIN:STANDARD",
+    "DTSTART:19701025T030000",
+    "TZOFFSETFROM:+0200",
+    "TZOFFSETTO:+0100",
+    "TZNAME:CET",
+    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
+    "END:STANDARD",
+    "BEGIN:DAYLIGHT",
+    "DTSTART:19700329T020000",
+    "TZOFFSETFROM:+0100",
+    "TZOFFSETTO:+0200",
+    "TZNAME:CEST",
+    "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
+    "END:DAYLIGHT",
+    "END:VTIMEZONE",
+]
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
@@ -96,6 +120,7 @@ def ics_feed(token: str, db: Annotated[Session, Depends(get_db)]) -> Response:
 
 def _render_ics(plans: list[DatePlan]) -> str:
     now_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    has_timed = any(p.start_time is not None for p in plans)
     lines: list[str] = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -105,6 +130,8 @@ def _render_ics(plans: list[DatePlan]) -> str:
         "X-WR-CALNAME:Couple Dates",
         "NAME:Couple Dates",
     ]
+    if has_timed:
+        lines.extend(VTIMEZONE_BLOCK)
     for p in plans:
         lines.extend(_render_event(p, now_utc))
     lines.append("END:VCALENDAR")
@@ -113,8 +140,6 @@ def _render_ics(plans: list[DatePlan]) -> str:
 
 
 def _render_event(plan: DatePlan, dtstamp: str) -> list[str]:
-    start: date = plan.scheduled_for
-    end = start + timedelta(days=1)  # all-day, DTEND is exclusive
     desc_parts: list[str] = []
     if plan.notes:
         desc_parts.append(plan.notes)
@@ -122,15 +147,31 @@ def _render_event(plan: DatePlan, dtstamp: str) -> list[str]:
         desc_parts.append(plan.idea.summary)
     description = "\n\n".join(desc_parts)
 
+    if plan.start_time is not None:
+        # Timed event with a wall-clock time anchored to Europe/Berlin so that
+        # DST switches don't shift "20:30" by an hour.
+        duration = plan.duration_minutes or 120  # default to 2h if unset
+        start_dt = datetime.combine(plan.scheduled_for, plan.start_time)
+        end_dt = start_dt + timedelta(minutes=duration)
+        dtstart = f"DTSTART;TZID={TZID}:{start_dt.strftime('%Y%m%dT%H%M%S')}"
+        dtend = f"DTEND;TZID={TZID}:{end_dt.strftime('%Y%m%dT%H%M%S')}"
+        transp = "TRANSP:OPAQUE"  # blocks time in Outlook free/busy
+    else:
+        start: date = plan.scheduled_for
+        end = start + timedelta(days=1)  # all-day, DTEND is exclusive
+        dtstart = f"DTSTART;VALUE=DATE:{start.strftime('%Y%m%d')}"
+        dtend = f"DTEND;VALUE=DATE:{end.strftime('%Y%m%d')}"
+        transp = "TRANSP:TRANSPARENT"
+
     return [
         "BEGIN:VEVENT",
         f"UID:date-{plan.id}@datemgr",
         f"DTSTAMP:{dtstamp}",
-        f"DTSTART;VALUE=DATE:{start.strftime('%Y%m%d')}",
-        f"DTEND;VALUE=DATE:{end.strftime('%Y%m%d')}",
+        dtstart,
+        dtend,
         f"SUMMARY:{_escape(plan.title)}",
         *([f"DESCRIPTION:{_escape(description)}"] if description else []),
-        "TRANSP:TRANSPARENT",
+        transp,
         "END:VEVENT",
     ]
 

@@ -21,6 +21,8 @@ export type DatePlan = {
   id: number;
   title: string;
   scheduled_for: string; // ISO date YYYY-MM-DD
+  start_time: string | null; // "HH:MM:SS" or null for all-day
+  duration_minutes: number | null;
   notes: string | null;
   status: "planned" | "done" | "cancelled";
   idea_id: number | null;
@@ -32,6 +34,8 @@ export type DatePlan = {
 
 export type Preferences = {
   context: string;
+  default_start_time: string | null; // "HH:MM:SS"
+  default_duration_minutes: number | null;
   updated_at: string;
 };
 

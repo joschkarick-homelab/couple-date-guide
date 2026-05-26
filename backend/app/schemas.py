@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -46,6 +46,8 @@ class IdeaOut(IdeaBase):
 class DateBase(BaseModel):
     title: str
     scheduled_for: date
+    start_time: Optional[time] = None
+    duration_minutes: Optional[int] = None
     notes: Optional[str] = None
     status: Literal["planned", "done", "cancelled"] = "planned"
     idea_id: Optional[int] = None
@@ -58,6 +60,8 @@ class DateCreate(DateBase):
 class DateUpdate(BaseModel):
     title: Optional[str] = None
     scheduled_for: Optional[date] = None
+    start_time: Optional[time] = None
+    duration_minutes: Optional[int] = None
     notes: Optional[str] = None
     status: Optional[Literal["planned", "done", "cancelled"]] = None
     idea_id: Optional[int] = None
@@ -75,12 +79,16 @@ class DateOut(DateBase):
 
 class PreferencesIn(BaseModel):
     context: str
+    default_start_time: Optional[time] = None
+    default_duration_minutes: Optional[int] = None
 
 
 class PreferencesOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     context: str
+    default_start_time: Optional[time] = None
+    default_duration_minutes: Optional[int] = None
     updated_at: datetime
 
 

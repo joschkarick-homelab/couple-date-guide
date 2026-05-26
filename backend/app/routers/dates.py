@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import CurrentUser
 from ..db import get_db
-from ..models import DatePlan
+from ..models import DatePlan, Preferences
 from ..schemas import DateCreate, DateOut, DateUpdate
 
 router = APIRouter(prefix="/api/dates", tags=["dates"])
@@ -47,9 +47,23 @@ def create_date(
     user: CurrentUser,
     db: Annotated[Session, Depends(get_db)],
 ) -> DatePlan:
+    # Fall back to the couple's default start time / duration when the caller
+    # didn't pass one — those defaults are configured in Preferences.
+    start_time = payload.start_time
+    duration_minutes = payload.duration_minutes
+    if start_time is None or duration_minutes is None:
+        prefs = db.get(Preferences, 1)
+        if prefs:
+            if start_time is None:
+                start_time = prefs.default_start_time
+            if duration_minutes is None:
+                duration_minutes = prefs.default_duration_minutes
+
     d = DatePlan(
         title=payload.title,
         scheduled_for=payload.scheduled_for,
+        start_time=start_time,
+        duration_minutes=duration_minutes,
         notes=payload.notes,
         status=payload.status,
         idea_id=payload.idea_id,
