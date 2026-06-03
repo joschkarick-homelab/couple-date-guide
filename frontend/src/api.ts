@@ -9,12 +9,28 @@ import type {
 
 const BASE = import.meta.env.VITE_API_URL || "/api";
 
+export function redirectToLogin(): void {
+  // oauth2-proxy serves its sign-in handler at /oauth2/sign_in and honours the
+  // `rd` query param as the post-login redirect target. Skip if we're already
+  // on an oauth2-proxy URL to avoid loops.
+  if (window.location.pathname.startsWith("/oauth2/")) return;
+  const rd = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.assign(`/oauth2/sign_in?rd=${rd}`);
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     ...init,
   });
+  if (res.status === 401) {
+    // Session expired (or oauth2-proxy cookie gone). Bounce through the proxy
+    // so the user can re-authenticate against Authentik.
+    redirectToLogin();
+    // Throw to short-circuit callers; the navigation will follow.
+    throw new Error("401: session expired, redirecting to login");
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${text}`);

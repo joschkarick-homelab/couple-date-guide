@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, redirectToLogin } from "../api";
 import type { Me } from "../types";
 
 const NAV_ITEMS = [
@@ -21,6 +21,7 @@ export function Layout() {
   const initials = me?.email
     ? me.email.slice(0, 2).toUpperCase()
     : me?.name?.slice(0, 2).toUpperCase() || "?";
+  const loggedOut = me === null;
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col px-4 pb-24 pt-4">
@@ -28,9 +29,19 @@ export function Layout() {
         <h1 className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-2xl font-bold text-transparent">
           Unsere Dates
         </h1>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-sm font-bold text-bg">
-          {initials}
-        </div>
+        {loggedOut ? (
+          <button
+            onClick={redirectToLogin}
+            className="flex h-9 items-center gap-1.5 rounded-full bg-secondary px-3 text-xs font-bold text-bg hover:opacity-90"
+            title="Erneut anmelden"
+          >
+            🔑 Login
+          </button>
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-sm font-bold text-bg">
+            {initials}
+          </div>
+        )}
       </header>
 
       <main className="flex-1">
