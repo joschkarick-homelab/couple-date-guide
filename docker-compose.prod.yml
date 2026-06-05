@@ -33,6 +33,11 @@ services:
       - --pass-access-token=true
       - --pass-user-headers=true
       - --set-xauthrequest=true
+      # Authentik markiert Emails nicht automatisch als verified (haengt am
+      # Email-Provider und der Authentik-Policy ab). Da Authentik selber unser
+      # IdP ist und ALLOWED_EMAILS im Backend ohnehin nur uns whitelistet,
+      # vertrauen wir der Identitaet hier auch ohne verified-Flag.
+      - --insecure-oidc-allow-unverified-email=true
       # Wichtig: Singular --skip-auth-route in neueren oauth2-proxy-Versionen.
       # Erlaubt den iOS-Kurzbefehl-Endpoint ohne OIDC-Login (er ist via
       # statischem Bearer-Token im Backend geschuetzt).
